@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>스포츠 영상 분석기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0f1a;color:#e2e8f0;min-height:100vh}
+
+/* ── 상단 탭 바 ── */
+.topbar{background:#111827;border-bottom:1px solid #1f2937;padding:0 32px;display:flex;align-items:center;gap:0}
+.topbar-brand{font-size:1rem;font-weight:800;color:#fff;padding:16px 24px 16px 0;border-right:1px solid #1f2937;margin-right:8px;white-space:nowrap}
+.tab-btn{padding:18px 24px;font-size:0.88rem;font-weight:600;color:#6b7280;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:#e2e8f0}
+.tab-btn.active{color:#60a5fa;border-bottom-color:#3b82f6}
+.tab-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#1f2937;font-size:0.72rem;margin-right:6px}
+.tab-btn.active .tab-num{background:#1d4ed8;color:#bfdbfe}
+
+/* ── 페이지 ── */
+.page{display:none;padding:32px;max-width:1200px;margin:0 auto}
+.page.active{display:block}
+.page-header{margin-bottom:28px}
+.page-header h1{font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:4px}
+.page-header p{color:#6b7280;font-size:0.85rem}
+
+/* ── 카드 ── */
+.card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:0.72rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+
+/* ── 버튼 ── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;border:none;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .15s}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:#3b82f6;color:#fff}.btn-primary:hover:not(:disabled){background:#2563eb}
+.btn-green{background:#10b981;color:#fff}.btn-green:hover:not(:disabled){background:#059669}
+.btn-purple{background:#7c3aed;color:#fff}.btn-purple:hover:not(:disabled){background:#6d28d9}
+
+/* ── 파이프라인 ── */
+.pipeline{display:flex;align-items:center;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.step{padding:5px 14px;border-radius:20px;font-size:.8rem;font-weight:600;background:#1f2937;border:1px solid #374151;color:#6b7280}
+.step.active{background:#1e3a5f;border-color:#3b82f6;color:#60a5fa}
+.step.done{background:#064e3b;border-color:#10b981;color:#34d399}
+.step.error{background:#450a0a;border-color:#ef4444;color:#f87171}
+.arrow{color:#374151}
+
+/* ── 로그 ── */
+.log{background:#0a0c14;border:1px solid #1f2937;border-radius:8px;padding:12px 14px;font-family:monospace;font-size:.8rem;color:#6b7280;max-height:140px;overflow-y:auto;line-height:1.7}
+.log-ok{color:#34d399}.log-err{color:#f87171}.log-info{color:#60a5fa}
+
+/* ── 파일 정보 ── */
+.file-info{display:flex;align-items:center;gap:12px;background:#0d0f1a;border:1px solid #1f2937;border-radius:8px;padding:14px 16px;margin-bottom:16px}
+.file-name{font-weight:600;color:#e2e8f0}
+.file-meta{font-size:.78rem;color:#6b7280;margin-top:2px}
+
+/* ── S3 결과 ── */
+.s3-result{background:#064e3b;border:1px solid #10b981;border-radius:8px;padding:14px 16px;font-size:.85rem;color:#34d399;font-family:monospace;word-break:break-all}
+
+/* ── BDA 사이드바 레이아웃 ── */
+.bda-layout{display:grid;grid-template-columns:220px 1fr;gap:16px;min-height:400px}
+.bda-nav{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:12px 8px;display:flex;flex-direction:column;gap:4px;height:fit-content;position:sticky;top:16px}
+.bda-nav-title{font-size:.68rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.08em;padding:6px 8px 2px}
+.bda-nav-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:.82rem;color:#9ca3af;border:none;background:none;width:100%;text-align:left;transition:all .15s}
+.bda-nav-btn:hover{background:#1f2937;color:#e2e8f0}
+.bda-nav-btn.active{background:#1e3a5f;color:#60a5fa;font-weight:600}
+.bda-nav-btn .cnt{margin-left:auto;background:#374151;color:#9ca3af;font-size:.68rem;padding:1px 5px;border-radius:8px;font-weight:600}
+.bda-nav-btn.active .cnt{background:#1d4ed8;color:#bfdbfe}
+.bda-panel{display:none}.bda-panel.active{display:block}
+
+/* ── 공통 테이블 ── */
+.data-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.data-table th{text-align:left;padding:9px 12px;background:#0d0f1a;color:#6b7280;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #1f2937;white-space:nowrap}
+.data-table td{padding:9px 12px;border-bottom:1px solid #111827;color:#d1d5db;vertical-align:top}
+.data-table tr:hover td{background:#111827}
+.data-table td.mono{font-family:monospace;font-size:.78rem;color:#60a5fa}
+.data-table td.wrap{white-space:pre-wrap;line-height:1.6;max-width:500px}
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid #1f2937}
+
+/* ── 배지 ── */
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:700;margin:1px}
+.badge-blue{background:#1e3a5f;color:#60a5fa}
+.badge-green{background:#064e3b;color:#34d399}
+.badge-purple{background:#2e1065;color:#c084fc}
+.badge-red{background:#450a0a;color:#f87171}
+.badge-yellow{background:#451a03;color:#fbbf24}
+
+/* ── 통계 박스 ── */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-box{flex:1;min-width:100px;background:#0d0f1a;border:1px solid #1f2937;border-radius:10px;padding:16px;text-align:center}
+.stat-num{font-size:2rem;font-weight:800;color:#60a5fa}
+.stat-label{font-size:.75rem;color:#6b7280;margin-top:4px}
+
+/* ── 요약 텍스트 ── */
+.summary-box{background:#0d0f1a;border-left:3px solid #3b82f6;padding:16px 18px;border-radius:0 8px 8px 0;font-size:.9rem;line-height:1.8;color:#d1d5db}
+
+/* ── 신뢰도 바 ── */
+.conf-bar{height:4px;background:#1f2937;border-radius:2px;margin-top:4px;width:80px}
+.conf-fill{height:100%;background:#3b82f6;border-radius:2px}
+
+/* ── TL 분석 그리드 ── */
+.tl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px}
+.tl-task-card{background:#111827;border:1px solid #1f2937;border-radius:10px;overflow:hidden}
+.tl-task-header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#0d0f1a;border-bottom:1px solid #1f2937;font-size:.82rem;font-weight:600;color:#94a3b8}
+.tl-task-status{margin-left:auto;font-size:.72rem;padding:2px 8px;border-radius:10px;font-weight:700}
+.tl-task-status.pending{background:#1f2937;color:#6b7280}
+.tl-task-status.processing{background:#1e3a5f;color:#60a5fa}
+.tl-task-status.ready{background:#064e3b;color:#34d399}
+.tl-task-status.error{background:#450a0a;color:#f87171}
+.tl-task-body{padding:12px 14px;font-size:.82rem;color:#9ca3af;min-height:60px}
+
+/* ── TL 결과 탭 ── */
+.tl-result-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
+.tl-rtab{padding:6px 14px;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer;background:#1f2937;color:#6b7280;border:none;transition:all .15s}
+.tl-rtab:hover{background:#374151;color:#e2e8f0}
+.tl-rtab.active{background:#1e3a5f;color:#60a5fa}
+.tl-rpanel{display:none}.tl-rpanel.active{display:block}
+
+/* ── 빈 상태 ── */
+.empty{text-align:center;padding:40px;color:#374151}
+.empty .icon{font-size:2.5rem;margin-bottom:10px}
+
+/* ── 스크롤바 ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- ── 상단 탭 바 ── -->
+<div class="topbar">
+  <div class="topbar-brand">🏟️ 스포츠 영상 분석기</div>
+  <button class="tab-btn active" onclick="switchTab(0,this)"><span class="tab-num">1</span>S3 업로드</button>
+  <button class="tab-btn"        onclick="switchTab(1,this)"><span class="tab-num">2</span>BDA 분석</button>
+  <button class="tab-btn"        onclick="switchTab(2,this)"><span class="tab-num">3</span>Twelve Labs 분석</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB 1 — S3 업로드
+══════════════════════════════════════ -->
+<div id="page-0" class="page active">
+  <div class="page-header">
+    <h1>① S3 업로드</h1>
+    <p>로컬 영상 파일을 Amazon S3에 업로드합니다. 이후 BDA 분석에 사용됩니다.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">업로드할 파일</div>
+    <div class="file-info">
+      <span style="font-size:1.5rem">📂</span>
+      <div style="flex:1">
+        <div class="file-name">data_video/ 폴더</div>
+        <div class="file-meta">아래에서 영상 파일을 선택하세요</div>
+      </div>
+    </div>
+    <select id="video-select" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #374151;background:#0d0f1a;color:#e2e8f0;font-size:.88rem;margin-bottom:12px">
+      <option value="">파일 목록 로딩 중...</option>
+    </select>
+    <button class="btn btn-primary" id="btn-upload" onclick="doUpload()" disabled>☁️ S3에 업로드</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">업로드 로그</div>
+    <div class="log" id="log-upload">대기 중...</div>
+  </div>
+
+  <div id="upload-result" style="display:none" class="card">
+    <div class="card-title">업로드 완료</div>
+    <div class="s3-result" id="s3-uri-display"></div>
+    <div style="margin-top:12px;font-size:.82rem;color:#6b7280">
+      ✅ BDA 분석 탭에서 이 파일을 바로 사용할 수 있습니다.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB 2 — BDA 분석
+══════════════════════════════════════ -->
+<div id="page-1" class="page">
+  <div class="page-header">
+    <h1>② Amazon Bedrock Data Automation</h1>
+    <p>BDA가 추출하는 모든 데이터를 카테고리별로 확인합니다.</p>
+  </div>
+
+  <div class="card">
+    <div class="pipeline">
+      <div class="step" id="bda-step-1">① BDA 시작</div>
+      <span class="arrow">→</span>
+      <div class="step" id="bda-step-2">② 처리 대기</div>
+      <span class="arrow">→</span>
+      <div class="step" id="bda-step-3">③ 결과 로드</div>
+    </div>
+    <button class="btn btn-green" id="btn-bda" onclick="doBDA()">▶ BDA 분석 시작</button>
+    <span style="font-size:.8rem;color:#6b7280;margin-left:12px">S3 업로드가 먼저 완료되어야 합니다</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">BDA 로그</div>
+    <div class="log" id="log-bda">대기 중...</div>
+  </div>
+
+  <!-- BDA 결과 영역 -->
+  <div id="bda-results" style="display:none">
+    <div class="bda-layout">
+      <!-- 사이드 네비 -->
+      <div class="bda-nav">
+        <div class="bda-nav-title">BDA 출력</div>
+        <button class="bda-nav-btn active" onclick="showBdaPanel('bda-meta',this)">📋 메타데이터 <span class="cnt" id="cnt-meta">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-stats',this)">📊 통계 <span class="cnt" id="cnt-stats">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-summary',this)">📝 전체 요약 <span class="cnt" id="cnt-summary">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-chapters',this)">🎬 챕터 <span class="cnt" id="cnt-chapters">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-shots',this)">✂️ 샷 분리 <span class="cnt" id="cnt-shots">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-transcript',this)">🎙️ 트랜스크립트 <span class="cnt" id="cnt-transcript">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-frames',this)">🖼️ 프레임 텍스트 <span class="cnt" id="cnt-frames">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-moderation',this)">🛡️ 모더레이션 <span class="cnt" id="cnt-moderation">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-iab',this)">🏷️ IAB 분류 <span class="cnt" id="cnt-iab">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-logos',this)">🔰 로고 <span class="cnt" id="cnt-logos">-</span></button>
+        <button class="bda-nav-btn" onclick="showBdaPanel('bda-raw',this)">{ } 원본 JSON</button>
+      </div>
+      <!-- 패널들 -->
+      <div>
+        <div id="bda-meta"       class="bda-panel active"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-stats"      class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-summary"    class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-chapters"   class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-shots"      class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-transcript" class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-frames"     class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-moderation" class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-iab"        class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-logos"      class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+        <div id="bda-raw"        class="bda-panel"><div class="empty"><div class="icon">⏳</div>분석 후 표시</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB 3 — Twelve Labs via Bedrock
+══════════════════════════════════════ -->
+<div id="page-2" class="page">
+  <div class="page-header">
+    <h1>③ Twelve Labs (via Amazon Bedrock)</h1>
+    <p>Bedrock에서 Pegasus 1.2 + Marengo Embed를 호출합니다. S3 영상을 직접 참조하므로 별도 업로드 불필요.</p>
+  </div>
+
+  <div class="card">
+    <div class="pipeline">
+      <div class="step" id="tl-step-1">① S3 확인</div>
+      <span class="arrow">→</span>
+      <div class="step" id="tl-step-2">② Pegasus 분석 (7개)</div>
+      <span class="arrow">→</span>
+      <div class="step" id="tl-step-3">③ 결과 수집</div>
+    </div>
+    <button class="btn btn-purple" id="btn-tl" onclick="doTwelveLabs()">▶ Bedrock Pegasus 분석 시작</button>
+    <span style="font-size:.8rem;color:#6b7280;margin-left:12px">S3 업로드가 먼저 완료되어야 합니다</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Twelve Labs 로그</div>
+    <div class="log" id="log-tl">대기 중...</div>
+  </div>
+
+  <!-- 분석 진행 카드 -->
+  <div id="tl-task-grid" style="display:none" class="card">
+    <div class="card-title">분석 작업 현황 (7개 Pegasus 1.2 + 1개 Pegasus 1.5)</div>
+    <div class="tl-grid" id="tl-task-cards"></div>
+  </div>
+
+  <!-- 결과 탭 -->
+  <div id="tl-results" style="display:none" class="card">
+    <div class="card-title">분석 결과 — 추출된 모든 데이터</div>
+    <div class="tl-result-tabs" id="tl-rtabs"></div>
+    <div id="tl-rpanels"></div>
+  </div>
+</div>
+
+
+<script>
+// ── 탭 전환 ──
+function switchTab(idx, btn) {
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── BDA 사이드 패널 ──
+function showBdaPanel(id, btn) {
+  document.querySelectorAll('.bda-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bda-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── 로그 헬퍼 ──
+function log(elId, msg, type='') {
+  const el = document.getElementById(elId);
+  const d  = document.createElement('div');
+  if (type) d.className = `log-${type}`;
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function setStep(id, state) { document.getElementById(id).className = `step ${state}`; }
+function setCnt(id, v) { const e=document.getElementById(`cnt-${id}`); if(e) e.textContent=v; }
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pct(v) { return v!=null ? (v*100).toFixed(1)+'%' : ''; }
+function ms2s(ms) { return ms!=null ? (ms/1000).toFixed(1)+'s' : ''; }
+
+// ════════════════════════════════════════
+// TAB 1 — S3 업로드
+// ════════════════════════════════════════
+let uploadedS3Key = null;
+
+// 페이지 로드 시 data_video/ 파일 목록 가져오기
+async function loadVideoList() {
+  const sel = document.getElementById('video-select');
+  const d = await fetch('/api/videos').then(r=>r.json());
+  sel.innerHTML = '';
+  if (!d.files || d.files.length === 0) {
+    sel.innerHTML = '<option value="">data_video/ 폴더에 영상 파일이 없습니다</option>';
+    document.getElementById('btn-upload').disabled = true;
+    return;
+  }
+  d.files.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f;
+    sel.appendChild(opt);
+  });
+  document.getElementById('btn-upload').disabled = false;
+}
+loadVideoList();
+
+async function doUpload() {
+  const sel = document.getElementById('video-select');
+  const filename = sel.value;
+  if (!filename) { log('log-upload','파일을 선택해주세요.','err'); return; }
+
+  document.getElementById('btn-upload').disabled = true;
+  document.getElementById('log-upload').innerHTML = '';
+  document.getElementById('upload-result').style.display = 'none';
+  log('log-upload',`${filename} → S3 업로드 중...`,'info');
+
+  const d = await fetch('/api/upload',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({filename: filename})
+  }).then(r=>r.json());
+
+  if (d.error) { log('log-upload',`실패: ${d.error}`,'err'); document.getElementById('btn-upload').disabled=false; return; }
+  uploadedS3Key = d.s3_key;
+  log('log-upload',`완료 → ${d.s3_uri}`,'ok');
+  document.getElementById('s3-uri-display').textContent = d.s3_uri;
+  document.getElementById('upload-result').style.display = 'block';
+  document.getElementById('btn-upload').disabled = false;
+}
+
+// ════════════════════════════════════════
+// TAB 2 — BDA
+// ════════════════════════════════════════
+let bdaInvArn=null, bdaOutPrefix=null;
+
+async function doBDA() {
+  document.getElementById('btn-bda').disabled = true;
+  document.getElementById('log-bda').innerHTML = '';
+  document.getElementById('bda-results').style.display = 'none';
+
+  setStep('bda-step-1','active');
+  log('log-bda','BDA 분석 작업 시작...','info');
+  if (!uploadedS3Key) {
+    log('log-bda','S3 업로드가 먼저 필요합니다. Tab 1에서 업로드해주세요.','err');
+    setStep('bda-step-1','error');
+    document.getElementById('btn-bda').disabled = false;
+    return;
+  }
+  const an = await fetch('/api/bda/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({s3_key:uploadedS3Key})}).then(r=>r.json());
+  if (an.error) { log('log-bda',`실패: ${an.error}`,'err'); setStep('bda-step-1','error'); document.getElementById('btn-bda').disabled=false; return; }
+  bdaInvArn=an.invocation_arn; bdaOutPrefix=an.output_prefix;
+  log('log-bda','작업 생성됨','ok'); setStep('bda-step-1','done');
+
+  setStep('bda-step-2','active');
+  log('log-bda','처리 중... (수 분 소요)','info');
+  bdaPoll();
+}
+
+async function bdaPoll() {
+  const d = await fetch('/api/bda/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invocation_arn:bdaInvArn})}).then(r=>r.json());
+  if (d.error) { log('log-bda',`오류: ${d.error}`,'err'); setStep('bda-step-2','error'); document.getElementById('btn-bda').disabled=false; return; }
+  log('log-bda',`상태: ${d.status}`);
+  if (d.status==='Success') {
+    setStep('bda-step-2','done'); setStep('bda-step-3','active');
+    log('log-bda','완료! 결과 로드 중...','ok');
+    await bdaLoadResults();
+  } else if (['Failed','ServiceError'].includes(d.status)) {
+    log('log-bda',`실패: ${d.status}`,'err'); setStep('bda-step-2','error'); document.getElementById('btn-bda').disabled=false;
+  } else { setTimeout(bdaPoll,10000); }
+}
+
+async function bdaLoadResults() {
+  const d = await fetch('/api/bda/results',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output_prefix:bdaOutPrefix})}).then(r=>r.json());
+  if (d.error) { log('log-bda',`로드 실패: ${d.error}`,'err'); setStep('bda-step-3','error'); document.getElementById('btn-bda').disabled=false; return; }
+  setStep('bda-step-3','done');
+  log('log-bda','렌더링 완료','ok');
+  let data = null;
+  for (const [k,v] of Object.entries(d.results)) { if (v&&v.metadata) { data=v; break; } }
+  if (!data) data = Object.values(d.results)[0] || {};
+  bdaRenderAll(data, d.results);
+  document.getElementById('bda-results').style.display = 'block';
+  document.getElementById('btn-bda').disabled = false;
+}
+</script>
+
+<script>
+// ════════════════════════════════════════
+// BDA 렌더러
+// ════════════════════════════════════════
+function bdaRenderAll(data, raw) {
+  // 실제 BDA 구조: summary/transcript는 data.video 안에, frames/iab/logos는 chapters 안에
+  bdaMeta(data); bdaStats(data); bdaSummary(data);
+  bdaChapters(data); bdaShots(data); bdaTranscript(data);
+  bdaFrames(data); bdaModeration(data); bdaIAB(data); bdaLogos(data);
+  document.getElementById('bda-raw').innerHTML =
+    `<div class="table-wrap"><pre style="padding:14px;font-size:.75rem;color:#94a3b8;overflow:auto;max-height:500px">${esc(JSON.stringify(raw,null,2))}</pre></div>`;
+}
+
+function tbl(headers, rows) {
+  if (!rows.length) return `<div class="empty"><div class="icon">📭</div>데이터 없음</div>`;
+  return `<div class="table-wrap"><table class="data-table">
+    <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// 챕터에서 모든 frames 수집하는 헬퍼
+function collectFromChapters(data, field) {
+  const items = [];
+  (data.chapters||[]).forEach((ch,ci) => {
+    if (field === 'frames') {
+      (ch.frames||[]).forEach(f => items.push(f));
+    } else if (field === 'iab_categories') {
+      (ch.iab_categories||[]).forEach(item => items.push(item));
+    } else if (field === 'content_moderation') {
+      // 챕터 레벨
+      (ch.content_moderation||[]).forEach(m => items.push({tc: ch.start_timecode_smpte, ...m}));
+      // 프레임 레벨
+      (ch.frames||[]).forEach(f => {
+        (f.content_moderation||[]).forEach(m => items.push({tc: f.timecode_smpte, ...m}));
+      });
+    } else if (field === 'logos') {
+      (ch.frames||[]).forEach(f => {
+        (f.logos||[]).forEach(l => items.push({tc: f.timecode_smpte, frame_index: f.frame_index, ...l}));
+      });
+    }
+  });
+  return items;
+}
+
+function bdaMeta(d) {
+  const m = d.metadata||{};
+  setCnt('meta', Object.keys(m).length);
+  const rows = Object.entries(m).map(([k,v])=>[`<span style="color:#94a3b8">${esc(k)}</span>`, `<span class="mono">${esc(String(v))}</span>`]);
+  document.getElementById('bda-meta').innerHTML = tbl(['필드','값'], rows);
+}
+
+function bdaStats(d) {
+  const s = d.statistics||{};
+  setCnt('stats', Object.keys(s).length);
+  const icons = {shot_count:'✂️',chapter_count:'🎬',speaker_count:'🎙️'};
+  const boxes = Object.entries(s).map(([k,v])=>`<div class="stat-box"><div style="font-size:1.3rem">${icons[k]||'📊'}</div><div class="stat-num">${v}</div><div class="stat-label">${esc(k)}</div></div>`).join('');
+  document.getElementById('bda-stats').innerHTML = `<div class="stat-row">${boxes}</div>` + tbl(['항목','값'], Object.entries(s).map(([k,v])=>[esc(k),esc(String(v))]));
+}
+
+function bdaSummary(d) {
+  const text = (d.video && d.video.summary) || d.summary || d.full_summary || '';
+  setCnt('summary', text ? '✓' : '0');
+  document.getElementById('bda-summary').innerHTML = text
+    ? `<div class="summary-box">${esc(text)}</div>`
+    : `<div class="empty"><div class="icon">📭</div>요약 없음</div>`;
+}
+
+function bdaChapters(d) {
+  const ch = d.chapters||[];
+  setCnt('chapters', ch.length);
+  document.getElementById('bda-chapters').innerHTML = tbl(
+    ['#','시작','종료','길이','샷 수','요약'],
+    ch.map((c,i)=>[
+      i+1,
+      `<span class="mono">${esc(c.start_timecode_smpte||'')}</span>`,
+      `<span class="mono">${esc(c.end_timecode_smpte||'')}</span>`,
+      ms2s(c.duration_millis),
+      (c.shot_indices||[]).length,
+      `<span class="wrap">${esc(c.summary||'')}</span>`
+    ])
+  );
+}
+
+function bdaShots(d) {
+  const sh = d.shots||[];
+  setCnt('shots', sh.length);
+  document.getElementById('bda-shots').innerHTML = tbl(
+    ['#','시작','종료','길이','시작프레임','종료프레임','챕터','신뢰도'],
+    sh.map(s=>[
+      s.shot_index??'',
+      `<span class="mono">${esc(s.start_timecode_smpte||'')}</span>`,
+      `<span class="mono">${esc(s.end_timecode_smpte||'')}</span>`,
+      ms2s(s.duration_millis),
+      s.start_frame_index??'', s.end_frame_index??'',
+      (s.chapter_indices||[]).join(', '),
+      s.confidence!=null ? `${pct(s.confidence)}<div class="conf-bar"><div class="conf-fill" style="width:${(s.confidence*100).toFixed(0)}%"></div></div>` : ''
+    ])
+  );
+}
+
+function bdaTranscript(d) {
+  // BDA 구조: data.video.transcript.representation.text 또는 배열
+  const videoObj = d.video || {};
+  const transcriptObj = videoObj.transcript || d.transcript || d.audio_transcript || null;
+  if (!transcriptObj) { setCnt('transcript','0'); document.getElementById('bda-transcript').innerHTML=`<div class="empty"><div class="icon">📭</div>트랜스크립트 없음</div>`; return; }
+
+  // representation.text 형태
+  if (transcriptObj.representation) {
+    const text = transcriptObj.representation.text || '';
+    if (!text.trim()) { setCnt('transcript','0'); document.getElementById('bda-transcript').innerHTML=`<div class="empty"><div class="icon">📭</div>음성 없음 (빈 트랜스크립트)</div>`; return; }
+    setCnt('transcript','✓');
+    document.getElementById('bda-transcript').innerHTML=`<div class="summary-box" style="white-space:pre-wrap">${esc(text)}</div>`;
+    return;
+  }
+
+  // 문자열 형태
+  if (typeof transcriptObj==='string') {
+    setCnt('transcript','✓');
+    document.getElementById('bda-transcript').innerHTML=`<div class="summary-box" style="white-space:pre-wrap">${esc(transcriptObj)}</div>`; return;
+  }
+
+  // 배열 형태
+  const lines = Array.isArray(transcriptObj)?transcriptObj:(transcriptObj.segments||transcriptObj.lines||[]);
+  setCnt('transcript', lines.length);
+  document.getElementById('bda-transcript').innerHTML = tbl(
+    ['타임코드','화자','텍스트'],
+    lines.map(l=>[
+      `<span class="mono">${esc(l.start_timecode_smpte||l.start_time||'')}</span>`,
+      `<span class="badge badge-purple">${esc(l.speaker_label||l.speaker||'')}</span>`,
+      `<span class="wrap">${esc(l.text||l.content||'')}</span>`
+    ])
+  );
+}
+
+function bdaFrames(d) {
+  const allFrames = collectFromChapters(d, 'frames');
+  const frames = allFrames.filter(f=>f.text_words&&f.text_words.length>0);
+  setCnt('frames', frames.length);
+  const rows = [];
+  frames.forEach(f => {
+    (f.text_words||[]).forEach(w => {
+      const bb = w.locations?.[0]?.bounding_box||{};
+      rows.push([
+        `<span class="mono">${esc(f.timecode_smpte||'')}</span>`,
+        f.frame_index??'',
+        `<span class="badge badge-blue">${esc(w.text||'')}</span>`,
+        pct(w.confidence),
+        bb.left!=null ? `L:${bb.left?.toFixed(3)} T:${bb.top?.toFixed(3)} W:${bb.width?.toFixed(3)} H:${bb.height?.toFixed(3)}` : ''
+      ]);
+    });
+  });
+  document.getElementById('bda-frames').innerHTML = tbl(['타임코드','프레임#','텍스트','신뢰도','위치(bounding box)'], rows);
+}
+
+function bdaModeration(d) {
+  const flags = collectFromChapters(d, 'content_moderation');
+  setCnt('moderation', flags.length||'✓');
+  if (!flags.length) {
+    document.getElementById('bda-moderation').innerHTML=`<div style="background:#064e3b;border:1px solid #10b981;border-radius:8px;padding:16px;color:#34d399;font-size:.88rem">✅ 부적절 콘텐츠가 감지되지 않았습니다</div>`; return;
+  }
+  document.getElementById('bda-moderation').innerHTML = tbl(
+    ['타임코드','카테고리','신뢰도'],
+    flags.map(f=>[`<span class="mono">${esc(f.tc||'')}</span>`,`<span class="badge badge-red">${esc(f.category||f.name||'')}</span>`,pct(f.confidence)])
+  );
+}
+
+function bdaIAB(d) {
+  const list = collectFromChapters(d, 'iab_categories');
+  // fallback: 최상위
+  const fallback = d.iab_categories || d.iab || [];
+  const all = list.length ? list : (Array.isArray(fallback) ? fallback : [fallback]);
+  setCnt('iab', all.filter(Boolean).length);
+  document.getElementById('bda-iab').innerHTML = tbl(
+    ['카테고리','분류 레벨','상위 카테고리','신뢰도'],
+    all.filter(Boolean).map(item=>[
+      `<span class="badge badge-green">${esc(item.category||item.name||item.category_l1||'')}</span>`,
+      item.taxonomy_level != null ? `L${item.taxonomy_level}` : (item.category_l2 ? 'L2' : 'L1'),
+      esc(item.parent_name||item.category_l1||''),
+      pct(item.confidence)
+    ])
+  );
+}
+
+function bdaLogos(d) {
+  const logos = collectFromChapters(d, 'logos');
+  // fallback: 최상위
+  const fallback = d.logos || [];
+  const all = logos.length ? logos : fallback;
+  setCnt('logos', all.length);
+  document.getElementById('bda-logos').innerHTML = tbl(
+    ['브랜드명','타임코드','프레임#','신뢰도','위치'],
+    all.map(l=>{
+      const bb = l.locations?.[0]?.bounding_box||l.bounding_box||{};
+      return [
+        `<span class="badge badge-purple">${esc(l.name||l.brand||'')}</span>`,
+        `<span class="mono">${esc(l.tc||l.timecode_smpte||l.timestamp||'')}</span>`,
+        l.frame_index??'',
+        pct(l.confidence),
+        bb.left!=null ? `L:${bb.left?.toFixed(3)} T:${bb.top?.toFixed(3)}` : ''
+      ];
+    })
+  );
+}
+</script>
+
+<script>
+// ════════════════════════════════════════
+// TAB 3 — Twelve Labs via Bedrock
+// ════════════════════════════════════════
+const TL_TASK_META = {
+  summary:      { icon:'📝', label:'전체 요약',       desc:'스포츠 종목·팀·결과 종합 요약' },
+  highlights:   { icon:'⚡', label:'하이라이트',       desc:'주요 장면·득점·결정적 순간' },
+  players:      { icon:'👤', label:'선수 분석',        desc:'등장 선수·번호·팀·주요 행동' },
+  actions:      { icon:'🏃', label:'동작 분석',        desc:'슛·패스·태클 등 모든 운동 동작' },
+  score_events: { icon:'🥅', label:'득점 이벤트',      desc:'골·점수 변화·득점자·방법' },
+  tactics:      { icon:'🧠', label:'전술 분석',        desc:'포메이션·전략·코칭 결정' },
+  emotions:     { icon:'🎉', label:'감정·분위기',      desc:'선수 감정·관중 반응·분위기' },
+  embeddings:   { icon:'🔢', label:'임베딩',           desc:'Marengo Embed 벡터 (비동기)' },
+};
+
+async function doTwelveLabs() {
+  document.getElementById('btn-tl').disabled = true;
+  document.getElementById('log-tl').innerHTML = '';
+  document.getElementById('tl-task-grid').style.display = 'none';
+  document.getElementById('tl-results').style.display = 'none';
+
+  // Step 1: S3 확인
+  setStep('tl-step-1','active');
+  if (!uploadedS3Key) {
+    log('log-tl','S3 업로드가 먼저 필요합니다. Tab 1에서 업로드해주세요.','err');
+    setStep('tl-step-1','error');
+    document.getElementById('btn-tl').disabled = false;
+    return;
+  }
+  log('log-tl',`S3 영상 확인: ${uploadedS3Key}`,'ok');
+  setStep('tl-step-1','done');
+
+  // Step 2: Bedrock Pegasus 분석 (서버에서 순차 실행)
+  setStep('tl-step-2','active');
+  log('log-tl','Bedrock Pegasus 1.2로 7개 분석 + Marengo Embed 실행 중... (수 분 소요)','info');
+
+  // 진행 카드 표시
+  const grid = document.getElementById('tl-task-cards');
+  grid.innerHTML = Object.entries(TL_TASK_META).map(([key,m]) =>
+    `<div class="tl-task-card" id="tl-card-${key}">
+      <div class="tl-task-header">${m.icon} ${m.label}
+        <span class="tl-task-status processing" id="tl-status-${key}">처리중</span>
+      </div>
+      <div class="tl-task-body" id="tl-body-${key}">${m.desc}</div>
+    </div>`
+  ).join('');
+  document.getElementById('tl-task-grid').style.display = 'block';
+
+  const resp = await fetch('/api/tl/analyze_all', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({s3_key: uploadedS3Key})
+  }).then(r => r.json());
+
+  const results = resp.results || {};
+  const errors  = resp.errors || {};
+
+  // 카드 상태 업데이트
+  for (const [key, m] of Object.entries(TL_TASK_META)) {
+    const statusEl = document.getElementById(`tl-status-${key}`);
+    const bodyEl   = document.getElementById(`tl-body-${key}`);
+    if (results[key]) {
+      if (statusEl) { statusEl.textContent='완료'; statusEl.className='tl-task-status ready'; }
+      if (bodyEl)   { bodyEl.textContent='✅ 데이터 수집됨'; }
+    } else if (errors[key]) {
+      if (statusEl) { statusEl.textContent='실패'; statusEl.className='tl-task-status error'; }
+      if (bodyEl)   { bodyEl.textContent=`❌ ${errors[key]}`; }
+      log('log-tl',`${m.label} 실패: ${errors[key]}`,'err');
+    }
+  }
+
+  setStep('tl-step-2','done');
+  setStep('tl-step-3','active');
+  log('log-tl','분석 완료! 결과 렌더링 중...','ok');
+
+  tlRenderResults(results);
+  setStep('tl-step-3','done');
+  document.getElementById('btn-tl').disabled = false;
+}
+
+// ── TL 결과 렌더 ──
+function tlRenderResults(results) {
+  const tabsEl   = document.getElementById('tl-rtabs');
+  const panelsEl = document.getElementById('tl-rpanels');
+  tabsEl.innerHTML = ''; panelsEl.innerHTML = '';
+
+  const order = ['summary','highlights','players','actions','score_events','tactics','emotions','embeddings'];
+  let first = true;
+
+  order.forEach(key => {
+    if (!results[key]) return;
+    const m = TL_TASK_META[key];
+
+    const btn = document.createElement('button');
+    btn.className = `tl-rtab${first?' active':''}`;
+    btn.textContent = `${m.icon} ${m.label}`;
+    btn.onclick = () => {
+      document.querySelectorAll('.tl-rtab').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tl-rpanel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`tl-rp-${key}`).classList.add('active');
+    };
+    tabsEl.appendChild(btn);
+
+    const panel = document.createElement('div');
+    panel.id = `tl-rp-${key}`;
+    panel.className = `tl-rpanel${first?' active':''}`;
+    panel.innerHTML = tlRenderPanel(key, results[key]);
+    panelsEl.appendChild(panel);
+
+    first = false;
+  });
+
+  document.getElementById('tl-results').style.display = 'block';
+}
+
+function tlRenderPanel(key, rawData) {
+  if (!rawData) return `<div class="empty"><div class="icon">📭</div>데이터 없음</div>`;
+
+  // 임베딩은 상태 정보만 표시
+  if (key === 'embeddings') {
+    const d = typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2);
+    return `<div class="summary-box" style="white-space:pre-wrap">${esc(d)}</div>`;
+  }
+
+  const text = typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2);
+  const lines = text.split('\n').filter(l=>l.trim());
+
+  const isList = lines.some(l=>/^[\d]+\.|^[-•*]/.test(l.trim()));
+  if (isList) {
+    const items = lines.filter(l=>l.trim()).map((l,i)=>[
+      `<span style="color:#4b5563;font-size:.75rem">${i+1}</span>`,
+      `<span class="wrap">${esc(l.replace(/^[\d]+\.\s*|^[-•*]\s*/,''))}</span>`
+    ]);
+    return tbl(['#','내용'], items);
+  }
+
+  return `<div class="summary-box" style="white-space:pre-wrap">${esc(text)}</div>`;
+}
+</script>
+</body>
+</html>

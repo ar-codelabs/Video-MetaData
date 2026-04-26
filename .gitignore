@@ -1,0 +1,28 @@
+# 환경변수 (AWS 키 포함)
+.env
+
+# 영상 파일
+data_video/*.avi
+data_video/*.mp4
+data_video/*.mov
+data_video/*.mkv
+data_video/*.webm
+data_video/*.flv
+data_video/*.wmv
+data_video/*.m4v
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+
+# OS
+.DS_Store
+Thumbs.db
